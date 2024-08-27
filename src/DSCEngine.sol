@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
+
 import {DecentralizedStableCoin} from "./DecentralizedStableCoin.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @title DSCEngin
@@ -28,15 +30,23 @@ contract DSCEngine is ReentrancyGuard {
     error DSCEngine_NeedsMoreThanZero();
     error DSCEngine_TokenAddressesAndPriceFeedAddressesMustBeSameLength();
     error DSCEngine_NotAllowedToken();
-
+    error DSCEngine_TransferFailed();
     //////////////////////////
     //  State Variables    //
     /////////////////////////
-    mapping(address token => address priceFeed) private s_priceFeeds;
+
     DecentralizedStableCoin private immutable s_dsc;
+    mapping(address token => address priceFeed) private s_priceFeeds;
+    mapping(address user => mapping(address token => address amount)) private s_collateralDeposited;
+
+    //////////////////////////
+    //  Events              //
+    /////////////////////////
+    event CollateralDeposited(address indexed user, address indexed token, uint256 amount);
     /////////////////
     //  Modifiers  //
     /////////////////
+
     modifier moreThanZero(uint256 amount) {
         if (amount < 0) {
             revert DSCEngine_NeedsMoreThanZero();
@@ -54,11 +64,7 @@ contract DSCEngine is ReentrancyGuard {
     /////////////////
     //  Functions  //
     /////////////////
-    constructor(
-        address[] memory tokenAddresses,
-        address[] memory priceFeedAddresses,
-        address dscAddress
-    ) {
+    constructor(address[] memory tokenAddresses, address[] memory priceFeedAddresses, address dscAddress) {
         if (tokenAddresses.length != priceFeedAddresses.length) {
             revert DSCEngine_TokenAddressesAndPriceFeedAddressesMustBeSameLength();
         }
@@ -79,16 +85,21 @@ contract DSCEngine is ReentrancyGuard {
      *
      * @param tokenCollateraAddress The address of the token to deposit as collateral.
      * @param amountCollateral The amount of collateral to deposit.
+     * use CEI check-effect-interaction
      */
-    function depositCollateral(
-        address tokenCollateraAddress,
-        uint256 amountCollateral
-    )
+    function depositCollateral(address tokenCollateraAddress, uint256 amountCollateral)
         external
         moreThanZero(amountCollateral)
         isAllowedToken(tokenCollateraAddress)
         nonReentrant
-    {}
+    {
+        s_collateralDeposited[msg.sender][tokenCollateraAddress] += amountCollateral;
+        emit CollateralDeposited(msg.sender, tokenCollateraAddress, amountCollateral);
+        bool success = IERC20(tokenCollateraAddress).transferFrom(msg.sender, address(this), amountCollateral);
+        if (!success) {
+            revert DSCEngine_TransferFailed();
+        }
+    }
 
     function redeemCollateralForDsc() external {}
 
