@@ -13,6 +13,8 @@ contract DSCEngineTest is Test {
     HelperConfig helperConfig;
     address ethPriceFeed;
     address weth;
+    address wbtcPriceFeed;
+    address wbtc;
 
     address public USER = makeAddr("user");
     uint256 public constant AMOUNT_COLLATERAL = 10 ether;
@@ -21,8 +23,27 @@ contract DSCEngineTest is Test {
     function setUp() external {
         DeployDSC deployDsc = new DeployDSC();
         (dsc, dscEngine, helperConfig) = deployDsc.run();
-        (ethPriceFeed, , weth, , ) = helperConfig.activeNetworkConfig();
+        (ethPriceFeed, wbtcPriceFeed, weth, wbtc, ) = helperConfig
+            .activeNetworkConfig();
         ERC20Mock(weth).mint(USER, STARTING_ERC20_BALANCE);
+    }
+
+    //////////////////////
+    // Constructor Test //
+    //////////////////////
+    address[] public tokenAddresses;
+    address[] public priceFeedAddresses;
+
+    function testRevertsIfTokenLengthDoesntMatchPriceFeeds() public {
+        tokenAddresses.push(weth);
+        priceFeedAddresses.push(wbtcPriceFeed);
+        priceFeedAddresses.push(wbtcPriceFeed);
+        vm.expectRevert(
+            DSCEngine
+                .DSCEngine_TokenAddressesAndPriceFeedAddressesMustBeSameLength
+                .selector
+        );
+        new DSCEngine(tokenAddresses, priceFeedAddresses, address(dsc));
     }
 
     //////////////////////
