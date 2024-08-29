@@ -20,6 +20,13 @@ contract DSCEngineTest is Test {
     uint256 public constant AMOUNT_COLLATERAL = 10 ether;
     uint256 public constant STARTING_ERC20_BALANCE = 10 ether;
 
+    ////Events/////
+    event CollateralDeposited(
+        address indexed user,
+        address indexed token,
+        uint256 amount
+    );
+
     function setUp() external {
         DeployDSC deployDsc = new DeployDSC();
         (dsc, dscEngine, helperConfig) = deployDsc.run();
@@ -56,6 +63,9 @@ contract DSCEngineTest is Test {
         assertEq(expectedUsd, actualUsd);
     }
 
+    /////////////////////////////////
+    // DepositCollateral Test       //
+    /////////////////////////////////
     function testRevertsIfCollateralZero() public {
         vm.startPrank(USER);
         ERC20Mock(weth).approve(address(dscEngine), AMOUNT_COLLATERAL);
@@ -64,4 +74,67 @@ contract DSCEngineTest is Test {
         dscEngine.depositCollateral(weth, 0);
         vm.stopPrank();
     }
+
+    function testRevertsWithUnapprovedCollateral() public {
+        ERC20Mock ranToken = new ERC20Mock("RAN", "RAN");
+        vm.prank(USER); //DSCEngine_NotAllowedToken
+        vm.expectRevert(DSCEngine.DSCEngine_NotAllowedToken.selector);
+        dscEngine.depositCollateral(address(ranToken), AMOUNT_COLLATERAL);
+        vm.stopPrank();
+    }
+
+    modifier depositedCollateral() {
+        vm.startPrank(USER);
+        ERC20Mock(weth).approve(address(dscEngine), AMOUNT_COLLATERAL);
+        dscEngine.depositCollateral(weth, AMOUNT_COLLATERAL);
+        vm.stopPrank();
+        _;
+    }
+
+    function testCanDepositCollateralAndGetAccountInfo()
+        public
+        depositedCollateral
+    {
+        (uint256 totalDscMinted, uint256 collateralValueInUsd) = dscEngine
+            .getAccountInformation(USER);
+        uint256 expectedTotalDscMinted = 0;
+        uint256 expectedDepositedAmount = dscEngine.getTokenAmountFromUsd(
+            weth,
+            collateralValueInUsd
+        );
+        assertEq(totalDscMinted, expectedTotalDscMinted);
+        assertEq(AMOUNT_COLLATERAL, expectedDepositedAmount);
+    }
+
+    function testDepositCollateralTransferAndEmitCollateralDepositedEvent()
+        public
+    {
+        vm.startPrank(USER);
+        ERC20Mock(weth).approve(address(dscEngine), AMOUNT_COLLATERAL);
+        vm.expectEmit(true, false, true, false);
+        emit CollateralDeposited(USER, weth, AMOUNT_COLLATERAL);
+        dscEngine.depositCollateral(weth, AMOUNT_COLLATERAL);
+        vm.stopPrank();
+        uint256 userBalance = 0;
+        assertEq(
+            ERC20Mock(weth).balanceOf(address(dscEngine)),
+            AMOUNT_COLLATERAL
+        );
+        assertEq(ERC20Mock(weth).balanceOf(USER), userBalance);
+    }
+
+    function testRevertIfMintDscZero() public depositedCollateral {
+        vm.prank(USER);
+        vm.expectRevert(DSCEngine.DSCEngine_NeedsMoreThanZero.selector);
+        dscEngine.mintDsc(0);
+    }
+
+    function testRevertIfHealthFactorBroken() public depositedCollateral {
+        // vm.expectRevert(DSCEngine.DSCEngine_BreakHealthFactor.selector);
+        vm.startPrank(USER);
+        vm.expectRevert();
+        dscEngine.mintDsc(20000e18);
+    }
+
+    function testHealthFactor() public {}
 }

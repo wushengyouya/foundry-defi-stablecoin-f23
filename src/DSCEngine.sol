@@ -266,8 +266,6 @@ contract DSCEngine is ReentrancyGuard {
         }
     }
 
-    function getHealthFactor() external view {}
-
     /////////////////////////////////////////
     //  Private & Internal view Functions  //
     /////////////////////////////////////////
@@ -339,8 +337,12 @@ contract DSCEngine is ReentrancyGuard {
             uint256 totalDscMinted,
             uint256 collateralValueInUsed //over 200%
         ) = _getAccountInfomation(user);
+        //(20000e18*50)/100 = 10000,000000000000000000
         uint256 collateralAdjustedForThreshold = (collateralValueInUsed *
             LIQUIDATION_THRESHOLD) / LIQUIDATION_PRECISON;
+        //1000,000000000000000000
+        //1.000000000000000000
+        //0.500000000000000000
         return (collateralAdjustedForThreshold * PRECISION) / totalDscMinted;
     }
 
@@ -356,6 +358,20 @@ contract DSCEngine is ReentrancyGuard {
     /////////////////////////////////////////
     //  public & External view Functions  //
     /////////////////////////////////////////
+    function getAccountInformation(
+        address user
+    )
+        public
+        view
+        returns (uint256 totalDscMinted, uint256 collateralValueInUsd)
+    {
+        return _getAccountInfomation(user);
+    }
+
+    function getHealthFactor(address user) public view returns (uint256) {
+        return _healthFactor(user);
+    }
+
     function getTokenAmountFromUsd(
         address token,
         uint256 usdAmountInWei
@@ -364,7 +380,7 @@ contract DSCEngine is ReentrancyGuard {
             s_priceFeeds[token]
         );
         (, int256 price, , , ) = priceFeed.latestRoundData();
-
+        //0.005000000000000000
         //($10e18 * 1e18)/($2000e8*1e10)
         return
             (usdAmountInWei * PRECISION) /
@@ -393,8 +409,8 @@ contract DSCEngine is ReentrancyGuard {
             s_priceFeeds[token]
         );
         (, int256 price, , , ) = priceFeed.latestRoundData();
-
+        //20000.000000000000000000
         return
-            ((uint256(price) * ADDITIONAL_FEED_PRECISION) * amount) / PRECISION; // 1000 * 1e8 * 1e10 * 1000 * 1e18
+            ((uint256(price) * ADDITIONAL_FEED_PRECISION) * amount) / PRECISION; // 2000 * 1e8 * 1e10 * 10 * 1e18 / 1e18
     }
 }
