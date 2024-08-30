@@ -241,7 +241,9 @@ contract DSCEngine is ReentrancyGuard {
             collateral,
             debtToCover
         );
-
+        //DSCAmountInUsd = 11000e18
+        //collateral ether: 5.500000000000000000 ether
+        //bouns: 0.550000000000000000 ether
         //And give them a 10% bonus
         //So we are givin the liquidator $110 of WTH,for 100DSC
         //We should implement amounts into a treasury
@@ -324,6 +326,22 @@ contract DSCEngine is ReentrancyGuard {
         collateralValueInUsd = getAccountCollateralValue(user);
     }
 
+    function _calculateHeathFactor(
+        uint256 totalDscMinted,
+        uint256 collateralValueInUsed
+    ) private pure returns (uint256) {
+        if (totalDscMinted == 0) {
+            return type(uint256).max;
+        }
+        //(20000e18*50)/100 = 10000,000000000000000000
+        uint256 collateralAdjustedForThreshold = (collateralValueInUsed *
+            LIQUIDATION_THRESHOLD) / LIQUIDATION_PRECISON;
+        //1000,000000000000000000
+        //1.000000000000000000
+        //0.500000000000000000
+        return (collateralAdjustedForThreshold * PRECISION) / totalDscMinted;
+    }
+
     /* TODO: can't understand
         Returns how close to liquidation a  user is   || liquidation-清算
         If a user goes below 1,then they can get liquidated
@@ -337,13 +355,7 @@ contract DSCEngine is ReentrancyGuard {
             uint256 totalDscMinted,
             uint256 collateralValueInUsed //over 200%
         ) = _getAccountInfomation(user);
-        //(20000e18*50)/100 = 10000,000000000000000000
-        uint256 collateralAdjustedForThreshold = (collateralValueInUsed *
-            LIQUIDATION_THRESHOLD) / LIQUIDATION_PRECISON;
-        //1000,000000000000000000
-        //1.000000000000000000
-        //0.500000000000000000
-        return (collateralAdjustedForThreshold * PRECISION) / totalDscMinted;
+        return _calculateHeathFactor(totalDscMinted, collateralValueInUsed);
     }
 
     function _revertIfHealthFactorIsBroken(address user) internal view {
@@ -358,6 +370,59 @@ contract DSCEngine is ReentrancyGuard {
     /////////////////////////////////////////
     //  public & External view Functions  //
     /////////////////////////////////////////
+    function calculateTotalCollateralToRedeem(
+        address collateral,
+        uint256 debtToCover
+    ) public view returns (uint256) {
+        uint256 tokenAmountFromDebtCovered = getTokenAmountFromUsd(
+            collateral,
+            debtToCover
+        );
+        //DSCAmountInUsd = 11000e18
+        //collateral ether: 5.500000000000000000 ether
+        //bouns: 0.550000000000000000 ether
+        //And give them a 10% bonus
+        //So we are givin the liquidator $110 of WTH,for 100DSC
+        //We should implement amounts into a treasury
+        //0.05 *0.1 = 0.005,Getting 0.055
+        uint256 bonusCollateral = (tokenAmountFromDebtCovered *
+            LUIQIDATION_BONUS) / LIQUIDATION_PRECISON;
+
+        uint256 totalCollateralToRedeem = tokenAmountFromDebtCovered +
+            bonusCollateral;
+        return totalCollateralToRedeem;
+    }
+
+    function setMintedDsc(
+        address user,
+        uint256 amount
+    ) public returns (uint256) {
+        s_DSCMintd[user] += amount;
+        return s_DSCMintd[user];
+    }
+
+    function calculateHealthFactor(
+        uint256 totalDscMinted,
+        uint256 collateralValueInUsed
+    ) public pure returns (uint256) {
+        return _calculateHeathFactor(totalDscMinted, collateralValueInUsed);
+    }
+
+    function getCollateralDeposited(
+        address user,
+        address collateralAddress
+    ) public view returns (uint256) {
+        return s_collateralDeposited[user][collateralAddress];
+    }
+
+    function getMinHealthFactor() public pure returns (uint256) {
+        return MIN_HEALTH_FACTOR;
+    }
+
+    function getMintedDsc(address user) public view returns (uint256) {
+        return s_DSCMintd[user];
+    }
+
     function getAccountInformation(
         address user
     )
@@ -381,7 +446,9 @@ contract DSCEngine is ReentrancyGuard {
         );
         (, int256 price, , , ) = priceFeed.latestRoundData();
         //0.005000000000000000
-        //($10e18 * 1e18)/($2000e8*1e10)
+        //($11000e18 * 1e18)/($2000e8*1e10) = 5.500000000000000000 (5.5 ether)
+        //uint256 u3 = (20001e18*1e18)/(2000e8 * 1e10); 在进行运算时 乘以 PRECISION 时为了保留 18个精度位
+        //10.000500000000000000
         return
             (usdAmountInWei * PRECISION) /
             (uint256(price) * ADDITIONAL_FEED_PRECISION);
