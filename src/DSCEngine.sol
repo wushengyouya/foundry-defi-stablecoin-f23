@@ -370,6 +370,10 @@ contract DSCEngine is ReentrancyGuard {
     /////////////////////////////////////////
     //  public & External view Functions  //
     /////////////////////////////////////////
+    function getCollateralTokens() public view returns (address[] memory) {
+        return s_collateralTokens;
+    }
+
     function calculateTotalCollateralToRedeem(
         address collateral,
         uint256 debtToCover
