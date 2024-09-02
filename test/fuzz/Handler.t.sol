@@ -30,7 +30,8 @@ contract Handler is Test {
     ) public {
         // dsce.depositCollateral(collateralSeed, collateralAmount);
         ERC20Mock collateral = _getCollateralFromSeed(collateralSeed);
-        // collateralSeed = bound(collateralSeed, 1, MAX_DEPOSITE_SIZE);
+        collateralSeed = bound(collateralSeed, 1, MAX_DEPOSITE_SIZE);
+        collateralAmount = bound(collateralAmount, 1, MAX_DEPOSITE_SIZE);
         console.log("Hanlder-collateral:", address(collateral));
         vm.startPrank(msg.sender);
         collateral.mint(msg.sender, collateralAmount);
