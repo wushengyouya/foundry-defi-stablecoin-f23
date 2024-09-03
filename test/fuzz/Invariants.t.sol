@@ -46,6 +46,16 @@ contract InvariantsTest is StdInvariant, Test {
         console.log("wethInUsd:", totalWbtcInUsd);
         console.log("wbtcInUsd", totalWbtcInUsd);
         console.log("totalDsc:", totalDsc);
+        console.log("totalMintDscCount:", handler.totalMintDscCount());
         assert(totalWethInUsd + totalWbtcInUsd >= totalDsc);
+    }
+
+    function invariant_testGetterNotRevert() public view {
+        // dscEngine.getAccountCollateralValue();
+        // dscEngine.getAccountInformation();
+        // dscEngine.getCollateralDeposited();
+        dscEngine.getCollateralTokens();
+        // dscEngine.getHealthFactor();
+        dscEngine.getMinHealthFactor();
     }
 }

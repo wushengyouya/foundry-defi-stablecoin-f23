@@ -5,6 +5,8 @@ import {DecentralizedStableCoin} from "./DecentralizedStableCoin.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import {OracleLib} from "./libraries/OracleLib.sol";
+import {console} from "forge-std/Test.sol";
 
 /**
  * @title DSCEngin
@@ -38,6 +40,11 @@ contract DSCEngine is ReentrancyGuard {
     error DSCEngine_HeathFactorNotImproved();
 
     //////////////////////////
+    //  Types    //
+    /////////////////////////
+    using OracleLib for AggregatorV3Interface;
+
+    //////////////////////////
     //  State Variables    //
     /////////////////////////
     uint256 private constant ADDITIONAL_FEED_PRECISION = 1e10;
@@ -67,6 +74,7 @@ contract DSCEngine is ReentrancyGuard {
         address indexed tokenCollateralAddress,
         uint256 amount
     );
+    event HealthFatorBroken(uint256 healthFator);
     /////////////////
     //  Modifiers  //
     /////////////////
@@ -342,7 +350,18 @@ contract DSCEngine is ReentrancyGuard {
         //1000,000000000000000000
         //1.000000000000000000
         //0.500000000000000000
-        return (collateralAdjustedForThreshold * PRECISION) / totalDscMinted;
+        console.log("collateralValueInUsed: ", collateralValueInUsed);
+        console.log(
+            "collateralAdjustedForThreshold: ",
+            collateralAdjustedForThreshold
+        );
+        console.log("totalDscMinted: ", totalDscMinted);
+        console.log(
+            "healthFactor: ",
+            (collateralAdjustedForThreshold * PRECISION) / totalDscMinted
+        );
+        return (collateralAdjustedForThreshold * PRECISION) / totalDscMinted; //47917066624767641279845705579
+        //(*1e18)/=283589224001513204
     }
 
     /* TODO: can't understand
@@ -373,6 +392,15 @@ contract DSCEngine is ReentrancyGuard {
     /////////////////////////////////////////
     //  public & External view Functions  //
     /////////////////////////////////////////
+    function getCollateralPriceFeed(
+        address collateral
+    ) public view returns (AggregatorV3Interface) {
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(
+            s_priceFeeds[collateral]
+        );
+        return priceFeed;
+    }
+
     function getCollateralTokens() public view returns (address[] memory) {
         return s_collateralTokens;
     }
@@ -451,7 +479,7 @@ contract DSCEngine is ReentrancyGuard {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(
             s_priceFeeds[token]
         );
-        (, int256 price, , , ) = priceFeed.latestRoundData();
+        (, int256 price, , , ) = priceFeed.staleCheckLastestRoundData();
         //0.005000000000000000
         //($11000e18 * 1e18)/($2000e8*1e10) = 5.500000000000000000 (5.5 ether)
         //uint256 u3 = (20001e18*1e18)/(2000e8 * 1e10); 在进行运算时 乘以 PRECISION 时为了保留 18个精度位
@@ -482,7 +510,7 @@ contract DSCEngine is ReentrancyGuard {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(
             s_priceFeeds[token]
         );
-        (, int256 price, , , ) = priceFeed.latestRoundData();
+        (, int256 price, , , ) = priceFeed.staleCheckLastestRoundData();
         //20000.000000000000000000
         return
             ((uint256(price) * ADDITIONAL_FEED_PRECISION) * amount) / PRECISION; // 2000 * 1e8 * 1e10 * 10 * 1e18 / 1e18

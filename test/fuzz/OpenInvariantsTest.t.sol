@@ -1,10 +1,13 @@
-// // SPDX-License-Identifier: MIT
-
+// SPDX-License-Identifier: MIT
 // //Have our invariant aka properties
 // //What are our invariants
 // //1. The total supply of DSC should be less than the total value of collateral
 // //2. Getter view funtions should be never revert <- evergreen invariant
-// pragma solidity ^0.8.22;
+pragma solidity ^0.8.22;
+
+contract A {
+
+}
 // import {Test, console} from "forge-std/Test.sol";
 // import {StdInvariant} from "forge-std/StdInvariant.sol";
 // import {DeployDSC} from "../../script/DeployDSC.s.sol";
